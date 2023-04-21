@@ -234,6 +234,39 @@ func (r *RPCClient) SendTransaction(from, to, gas, gasPrice, value string, autoG
 	return reply, err
 }
 
+// CallContractMethod()
+// This function takes the contract address, method signature, sender address, 
+// and any required method arguments as input. It then encodes the function call 
+// data using the EncodeFunctionCall function from the ethereum/contracts package, 
+// and constructs an RPC request with the encoded data using the eth_call method.
+// The function then waits for a response from the node, which contains the result 
+// of executing the contract function locally. The response is returned as a byte slice.
+// To call a specific ERC20 method, you need to know its method signature, which is a 
+// unique identifier for the method based on its name and input parameter types. 
+// You can find the method signatures for the ERC20 standard methods in the 
+// ERC20 token contract documentation.
+
+func (r *RPCClient) CallContractMethod(contractAddr string, methodSig string, fromAddr string, args []interface{}) ([]byte, error) {
+    data, err := contract.EncodeFunctionCall(methodSig, args...)
+    if err != nil {
+        return nil, err
+    }
+    params := map[string]string{
+        "from":  fromAddr,
+        "to":    contractAddr,
+        "data":  hexutil.Encode(data),
+    }
+    rpcResp, err := r.doPost(r.Url, "eth_call", []interface{}{params, "latest"})
+    if err != nil {
+        return nil, err
+    }
+    result := *rpcResp.Result
+    if result == nil {
+        return nil, errors.New("empty result returned from the node")
+    }
+    return result, nil
+}
+
 func (r *RPCClient) doPost(url string, method string, params interface{}) (*JSONRpcResp, error) {
 	jsonReq := map[string]interface{}{"jsonrpc": "2.0", "method": method, "params": params, "id": 0}
 	data, _ := json.Marshal(jsonReq)
