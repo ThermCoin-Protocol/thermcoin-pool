@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/sammy007/open-ethereum-pool/util"
 )
@@ -234,37 +235,51 @@ func (r *RPCClient) SendTransaction(from, to, gas, gasPrice, value string, autoG
 	return reply, err
 }
 
-// CallContractMethod()
-// This function takes the contract address, method signature, sender address, 
-// and any required method arguments as input. It then encodes the function call 
-// data using the EncodeFunctionCall function from the ethereum/contracts package, 
-// and constructs an RPC request with the encoded data using the eth_call method.
-// The function then waits for a response from the node, which contains the result 
-// of executing the contract function locally. The response is returned as a byte slice.
-// To call a specific ERC20 method, you need to know its method signature, which is a 
-// unique identifier for the method based on its name and input parameter types. 
-// You can find the method signatures for the ERC20 standard methods in the 
-// ERC20 token contract documentation.
+func (r *RPCClient) sendERC20(from, to string, amount *big.Int, gas, gasPrice string, autoGas bool) (string, error) {
+	// Replace this with the ThermCoin contract address
+	const thermCoinContractAddress = "0xThermCoinContractAddressHere"
 
-func (r *RPCClient) CallContractMethod(contractAddr string, methodSig string, fromAddr string, args []interface{}) ([]byte, error) {
-    data, err := contract.EncodeFunctionCall(methodSig, args...)
-    if err != nil {
-        return nil, err
-    }
-    params := map[string]string{
-        "from":  fromAddr,
-        "to":    contractAddr,
-        "data":  hexutil.Encode(data),
-    }
-    rpcResp, err := r.doPost(r.Url, "eth_call", []interface{}{params, "latest"})
-    if err != nil {
-        return nil, err
-    }
-    result := *rpcResp.Result
-    if result == nil {
-        return nil, errors.New("empty result returned from the node")
-    }
-    return result, nil
+	// Standard ERC20 ABI JSON string
+	erc20AbiJson := "" // Import ABI Here
+
+	// Create the ABI object
+	erc20Abi, err := abi.JSON(strings.NewReader(erc20AbiJson))
+	if err != nil {
+		return "", err
+	}
+
+	// Encode the transfer method call
+	data, err := erc20Abi.Pack("transfer", common.HexToAddress(to), amount)
+	if err != nil {
+		return "", err
+	}
+
+	// Convert data to hex string
+	encodedData := fmt.Sprintf("0x%x", data)
+
+	params := map[string]string{
+		"from":  from,
+		"to":    thermCoinContractAddress,
+		"value": "0x0",
+		"data":  encodedData,
+	}
+	if !autoGas {
+		params["gas"] = gas
+		params["gasPrice"] = gasPrice
+	}
+	rpcResp, err := r.doPost(r.Url, "eth_sendTransaction", []interface{}{params})
+	var reply string
+	if err != nil {
+		return reply, err
+	}
+	err = json.Unmarshal(*rpcResp.Result, &reply)
+	if err != nil {
+		return reply, err
+	}
+	if util.IsZeroHash(reply) {
+		err = errors.New("transaction is not yet available")
+	}
+	return reply, err
 }
 
 func (r *RPCClient) doPost(url string, method string, params interface{}) (*JSONRpcResp, error) {
