@@ -174,43 +174,14 @@ func (u *PayoutsProcessor) process() {
 		// ThermCoin payment
 		// ---------------------------
 
-		// Define the ERC20 token contract address and transfer method signature
-		const (
-			tokenContractAddress = "0x123456789abcdef..." // Replace with actual ERC20 contract address
-			transferMethodSig    = "transfer(address,uint256)"
-		)
-
-		// Get the destination address and payment amount from input parameters
-		destAddr := login
-		amount := big.NewInt(1000000000) // Replace with actual payment amount
-
-		// Encode the function call data for the ERC20 transfer method
-		data, err := contract.EncodeFunctionCall(transferMethodSig, destAddr, amount)
+		value := hexutil.EncodeBig(amountInWei)
+		txHash, err := u.rpc.sendERC20(u.config.Address, login, amountInWei, u.config.GasHex(), u.config.GasPriceHex(), u.config.AutoGas)
 		if err != nil {
-			log.Printf("Failed to encode transfer function call data: %v", err)
-			return
-		}
-
-		// Call the ERC20 transfer method using the CallContractMethod() function
-		result, err := u.rpc.CallContractMethod(tokenContractAddress, data, u.config.Address, nil)
-		if err != nil {
-			log.Printf("Failed to call ERC20 transfer method: %v", err)
-			return
-		}
-
-		// Handle the result of the ERC20 transfer method call
-		if len(result) == 0 {
-			log.Printf("Empty result returned from ERC20 transfer method call")
-		}
-		// The result is the return value of the transfer method, which should be true on success
-		success := new(bool)
-		err = contract.DecodeReturnValue(result, success)
-		if err != nil {
-			log.Printf("Failed to decode transfer method result: %v", err)
-			return
-		}
-		if !*success {
-			log.Printf("ERC20 transfer method returned false")
+			log.Printf("Failed to send payment to %s, %v Shannon: %v. Check outgoing tx for %s in block explorer and docs/PAYOUTS.md",
+				login, amount, err, login)
+			u.halt = true
+			u.lastFail = err
+			break
 		}
 
 		// ---------------------------
