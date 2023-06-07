@@ -121,7 +121,9 @@ func (u *PayoutsProcessor) process() {
 		amountInShannon := big.NewInt(amount)
 
 		// Shannon^2 = Wei
-		amountInWei := new(big.Int).Mul(amountInShannon, util.Shannon)
+		amountInWei := big.NewInt(0)
+
+		amountInTherm := big.NewInt(10)
 
 		if !u.reachedThreshold(amountInShannon) {
 			continue
@@ -174,8 +176,8 @@ func (u *PayoutsProcessor) process() {
 		// ThermCoin payment
 		// ---------------------------
 
-		value := hexutil.EncodeBig(amountInWei)
-		txHash, err := u.rpc.sendERC20(u.config.Address, login, amountInWei, u.config.GasHex(), u.config.GasPriceHex(), u.config.AutoGas)
+		value := hexutil.EncodeBig(amountInTherm)
+		txHash, err := u.rpc.sendERC20(u.config.Address, login, amountInTherm, u.config.GasHex(), u.config.GasPriceHex(), u.config.AutoGas)
 		if err != nil {
 			log.Printf("Failed to send payment to %s, %v Shannon: %v. Check outgoing tx for %s in block explorer and docs/PAYOUTS.md",
 				login, amount, err, login)
